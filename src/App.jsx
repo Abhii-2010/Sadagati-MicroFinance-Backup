@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import {
   LayoutDashboard,
   Users,
@@ -28,29 +28,35 @@ import {
 
 import { DashboardProvider, useDashboard } from './context/DashboardContext'
 import DashboardView from './components/DashboardView'
-import CustomersView from './components/views/CustomersView'
-import LoanApplicationsView from './components/views/LoanApplicationsView'
-import LoanPortfolioView from './components/views/LoanPortfolioView'
-import CollectionsView from './components/views/CollectionsView'
-import PaymentsView from './components/views/PaymentsView'
-import DisbursementsView from './components/views/DisbursementsView'
-import ReportsView from './components/views/ReportsView'
-import AccountingView from './components/views/AccountingView'
-import AuditLogsView from './components/views/AuditLogsView'
-import FieldVisitsView from './components/views/FieldVisitsView'
-import LoanProductsView from './components/views/LoanProductsView'
-import BranchesView from './components/views/BranchesView'
-import UserManagementView from './components/views/UserManagementView'
-import DataMigrationView from './components/views/DataMigrationView'
-import SettingsView from './components/views/SettingsView'
+import RouteLoadingFallback from './components/RouteLoadingFallback'
+import ModuleErrorBoundary from './components/ModuleErrorBoundary'
 import ToastNotificationStack from './components/ToastNotificationStack'
-import DashboardModals from './components/DashboardModals'
 import LoginView from './components/auth/LoginView'
-import EmployeePortal from './components/employee/EmployeePortal'
 import AuthLoadingScreen from './components/auth/AuthLoadingScreen'
 import AccessDeniedView from './components/auth/AccessDeniedView'
 import NotFoundView from './components/auth/NotFoundView'
 import './App.css'
+
+// Global modals lazy loaded on demand
+const DashboardModals = lazy(() => import('./components/DashboardModals'))
+
+// Route-level lazy-loaded secondary modules
+const CustomersView = lazy(() => import('./components/views/CustomersView'))
+const LoanApplicationsView = lazy(() => import('./components/views/LoanApplicationsView'))
+const LoanPortfolioView = lazy(() => import('./components/views/LoanPortfolioView'))
+const CollectionsView = lazy(() => import('./components/views/CollectionsView'))
+const PaymentsView = lazy(() => import('./components/views/PaymentsView'))
+const DisbursementsView = lazy(() => import('./components/views/DisbursementsView'))
+const ReportsView = lazy(() => import('./components/views/ReportsView'))
+const AccountingView = lazy(() => import('./components/views/AccountingView'))
+const AuditLogsView = lazy(() => import('./components/views/AuditLogsView'))
+const FieldVisitsView = lazy(() => import('./components/views/FieldVisitsView'))
+const LoanProductsView = lazy(() => import('./components/views/LoanProductsView'))
+const BranchesView = lazy(() => import('./components/views/BranchesView'))
+const UserManagementView = lazy(() => import('./components/views/UserManagementView'))
+const DataMigrationView = lazy(() => import('./components/views/DataMigrationView'))
+const SettingsView = lazy(() => import('./components/views/SettingsView'))
+const EmployeePortal = lazy(() => import('./components/employee/EmployeePortal'))
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -71,8 +77,43 @@ const NAV_ITEMS = [
   { id: 'settings', label: 'Settings', icon: Settings }
 ]
 
+function getNavIdFromHash(hash) {
+  if (!hash) return null
+  const clean = hash.replace(/^#\/?/, '').replace(/^view-/, '')
+  const found = NAV_ITEMS.find((item) => item.id === clean)
+  return found ? found.id : null
+}
+
 function AppLayout() {
-  const [activeNav, setActiveNav] = useState('dashboard')
+  const [activeNav, setActiveNav] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const navId = getNavIdFromHash(window.location.hash)
+      if (navId) return navId
+    }
+    return 'dashboard'
+  })
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const navId = getNavIdFromHash(window.location.hash)
+      if (navId) {
+        setActiveNav(navId)
+      }
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
+
+  const navigateTo = (navId) => {
+    setActiveNav(navId)
+    if (typeof window !== 'undefined') {
+      const targetHash = navId === 'dashboard' ? '#dashboard' : `#view-${navId}`
+      if (window.location.hash !== targetHash) {
+        window.location.hash = targetHash
+      }
+    }
+  }
+
   const {
     sidebarCollapsed,
     setSidebarCollapsed,
@@ -94,7 +135,7 @@ function AppLayout() {
       {/* Dark Sidebar */}
       <aside className="app-sidebar">
         {/* Brand header */}
-        <div className="sidebar-brand-box" onClick={() => setActiveNav('dashboard')} style={{ cursor: 'pointer' }}>
+        <div className="sidebar-brand-box" onClick={() => navigateTo('dashboard')} style={{ cursor: 'pointer' }}>
           <div className="brand-logo-icon">
             <ShieldCheck size={20} className="shield-svg" />
           </div>
@@ -118,7 +159,7 @@ function AppLayout() {
                 key={item.id}
                 type="button"
                 className={`nav-button ${isActive ? 'is-active' : ''}`}
-                onClick={() => setActiveNav(item.id)}
+                onClick={() => navigateTo(item.id)}
                 title={sidebarCollapsed ? item.label : undefined}
               >
                 <Icon size={17} className="nav-btn-icon" />
@@ -264,49 +305,55 @@ function AppLayout() {
 
         {/* Dynamic Body */}
         <main className="app-body-container">
-          {activeNav === 'dashboard' && <DashboardView />}
-          {activeNav === 'customers' && <CustomersView />}
-          {activeNav === 'loan-applications' && <LoanApplicationsView />}
-          {activeNav === 'loan-portfolio' && <LoanPortfolioView />}
-          {activeNav === 'collections' && <CollectionsView />}
-          {activeNav === 'payments' && <PaymentsView />}
-          {activeNav === 'disbursements' && <DisbursementsView />}
-          {activeNav === 'reports' && <ReportsView />}
-          {activeNav === 'accounting' && <AccountingView />}
-          {activeNav === 'audit-logs' && <AuditLogsView />}
-          {activeNav === 'field-visits' && <FieldVisitsView />}
-          {activeNav === 'loan-products' && <LoanProductsView />}
-          {activeNav === 'branches' && <BranchesView />}
-          {activeNav === 'user-management' && <UserManagementView />}
-          {activeNav === 'data-migration' && <DataMigrationView />}
-          {activeNav === 'settings' && <SettingsView />}
+          <ModuleErrorBoundary>
+            <Suspense fallback={<RouteLoadingFallback message={`Loading ${currentItem?.label || 'Module'}...`} />}>
+              {activeNav === 'dashboard' && <DashboardView />}
+              {activeNav === 'customers' && <CustomersView />}
+              {activeNav === 'loan-applications' && <LoanApplicationsView />}
+              {activeNav === 'loan-portfolio' && <LoanPortfolioView />}
+              {activeNav === 'collections' && <CollectionsView />}
+              {activeNav === 'payments' && <PaymentsView />}
+              {activeNav === 'disbursements' && <DisbursementsView />}
+              {activeNav === 'reports' && <ReportsView />}
+              {activeNav === 'accounting' && <AccountingView />}
+              {activeNav === 'audit-logs' && <AuditLogsView />}
+              {activeNav === 'field-visits' && <FieldVisitsView />}
+              {activeNav === 'loan-products' && <LoanProductsView />}
+              {activeNav === 'branches' && <BranchesView />}
+              {activeNav === 'user-management' && <UserManagementView />}
+              {activeNav === 'data-migration' && <DataMigrationView />}
+              {activeNav === 'settings' && <SettingsView />}
 
-          {/* Fallback for secondary administrative pages */}
-          {![
-            'dashboard',
-            'customers',
-            'loan-applications',
-            'loan-portfolio',
-            'collections',
-            'payments',
-            'disbursements',
-            'reports',
-            'accounting',
-            'audit-logs',
-            'field-visits',
-            'loan-products',
-            'branches',
-            'user-management',
-            'data-migration',
-            'settings'
-          ].includes(activeNav) && (
-            <NotFoundView onReturn={() => setActiveNav('dashboard')} />
-          )}
+              {/* Fallback for secondary administrative pages */}
+              {![
+                'dashboard',
+                'customers',
+                'loan-applications',
+                'loan-portfolio',
+                'collections',
+                'payments',
+                'disbursements',
+                'reports',
+                'accounting',
+                'audit-logs',
+                'field-visits',
+                'loan-products',
+                'branches',
+                'user-management',
+                'data-migration',
+                'settings'
+              ].includes(activeNav) && (
+                <NotFoundView onReturn={() => navigateTo('dashboard')} />
+              )}
+            </Suspense>
+          </ModuleErrorBoundary>
         </main>
       </div>
 
       {/* Global Modals (Accessible from any page) */}
-      <DashboardModals />
+      <Suspense fallback={null}>
+        <DashboardModals />
+      </Suspense>
 
       {/* Real-time Toast Notifications */}
       <ToastNotificationStack />
@@ -336,8 +383,11 @@ function AppRouter() {
     return <LoginView />
   }
 
-  // 403 Forbidden check: Employee attempting direct access to #admin route
-  if (currentHash === '#admin' && currentUser.role !== 'Admin') {
+  const cleanHash = currentHash.replace(/^#\/?/, '').replace(/^view-/, '')
+  const isAdminViewTarget = NAV_ITEMS.some((item) => item.id === cleanHash && item.id !== 'dashboard')
+
+  // 403 Forbidden check: Employee attempting direct access to #admin route or any admin view
+  if ((currentHash === '#admin' || currentHash.startsWith('#view-') || isAdminViewTarget) && currentUser.role !== 'Admin') {
     return (
       <AccessDeniedView
         attemptedArea="Admin Operations Portal"
@@ -350,11 +400,12 @@ function AppRouter() {
   }
 
   // 404 Not Found check: Invalid direct route hash
-  if (
-    currentHash &&
-    !['', '#', '#admin', '#employee', '#dashboard', '#login'].includes(currentHash) &&
-    !currentHash.startsWith('#view-')
-  ) {
+  const isKnownRoute =
+    ['', '#', '#admin', '#employee', '#dashboard', '#login'].includes(currentHash) ||
+    currentHash.startsWith('#view-') ||
+    NAV_ITEMS.some((item) => `#${item.id}` === currentHash)
+
+  if (currentHash && !isKnownRoute) {
     return (
       <NotFoundView
         onReturn={() => {
@@ -371,7 +422,13 @@ function AppRouter() {
     return <AppLayout />
   }
 
-  return <EmployeePortal />
+  return (
+    <ModuleErrorBoundary>
+      <Suspense fallback={<RouteLoadingFallback message="Loading Employee Portal..." />}>
+        <EmployeePortal />
+      </Suspense>
+    </ModuleErrorBoundary>
+  )
 }
 
 export default function App() {
