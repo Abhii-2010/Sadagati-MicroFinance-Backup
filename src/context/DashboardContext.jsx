@@ -5,10 +5,20 @@ import {
   TENURE_UNIT_LABELS,
   REPAYMENT_FREQUENCY_LABELS
 } from '../services/loanCalculationService.js'
+import {
+  safeSaveLedger,
+  safeLoadLedger,
+  exportLedgerBackupFile,
+  getStorageDiagnostics,
+  PRIMARY_LEDGER_KEY,
+  LEGACY_LEDGER_KEY,
+  BACKUP_KEY_PREFIX,
+  MAX_BACKUPS
+} from '../services/storageService.js'
 
 const DashboardContext = createContext(null)
 
-const STORAGE_KEY = 'sadagati_mf_dashboard_state_v6'
+const STORAGE_KEY = PRIMARY_LEDGER_KEY
 
 const DEFAULT_METRICS = {
   totalPortfolio: 82000,
@@ -1123,144 +1133,37 @@ const DEFAULT_AUDIT_LOGS = [
 ]
 
 export function DashboardProvider({ children }) {
-  const [metrics, setMetrics] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.metrics) return parsed.metrics
-      }
-    } catch {
-      // fallback
-    }
-    return BLANK_METRICS
-  })
+  // Safe storage load with corruption detection & backup recovery
+  const [initialStorageResult] = useState(() => safeLoadLedger())
+  const saved = initialStorageResult?.data
 
-  const [trend, setTrend] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.trend) return parsed.trend
-      }
-    } catch {
-      // fallback
-    }
-    return BLANK_TREND
-  })
-
-  const [statusBreakdown, setStatusBreakdown] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.statusBreakdown) return parsed.statusBreakdown
-      }
-    } catch {
-      // fallback
-    }
-    return BLANK_STATUS
-  })
-
-  const [pendingApprovals, setPendingApprovals] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.pendingApprovals && Array.isArray(parsed.pendingApprovals)) return parsed.pendingApprovals
-      }
-    } catch {
-      // fallback
-    }
-    return []
-  })
-
-  const [recentPayments, setRecentPayments] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.recentPayments && Array.isArray(parsed.recentPayments)) return parsed.recentPayments
-      }
-    } catch {
-      // fallback
-    }
-    return []
-  })
-
-  const [collectionTracker, setCollectionTracker] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.collectionTracker) return parsed.collectionTracker
-      }
-    } catch {
-      // fallback
-    }
-    return BLANK_COLLECTION_TRACKER
-  })
-
-  const [loans, setLoans] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.loans && Array.isArray(parsed.loans)) return parsed.loans
-      }
-    } catch {
-      // fallback
-    }
-    return []
-  })
+  const [metrics, setMetrics] = useState(() => saved?.metrics || BLANK_METRICS)
+  const [trend, setTrend] = useState(() => saved?.trend || BLANK_TREND)
+  const [statusBreakdown, setStatusBreakdown] = useState(() => saved?.statusBreakdown || BLANK_STATUS)
+  const [pendingApprovals, setPendingApprovals] = useState(() => (Array.isArray(saved?.pendingApprovals) ? saved.pendingApprovals : []))
+  const [recentPayments, setRecentPayments] = useState(() => (Array.isArray(saved?.recentPayments) ? saved.recentPayments : []))
+  const [collectionTracker, setCollectionTracker] = useState(() => saved?.collectionTracker || BLANK_COLLECTION_TRACKER)
+  const [loans, setLoans] = useState(() => (Array.isArray(saved?.loans) ? saved.loans : []))
 
   const [customers, setCustomers] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.customers && Array.isArray(parsed.customers)) {
-          // Ensure all customer IDs strictly start with SGTPL
-          return parsed.customers.map((c, idx) => {
-            const hasSgtpl = c.id && String(c.id).startsWith('SGTPL')
-            return {
-              ...c,
-              id: hasSgtpl ? c.id : formatCustomerId(idx + 1),
-              employment: c.employment || 'self employed',
-              kycStatus: c.kycStatus || (idx === 0 ? 'Pending' : 'Verified')
-            }
-          })
+    if (saved?.customers && Array.isArray(saved.customers)) {
+      return saved.customers.map((c, idx) => {
+        const hasSgtpl = c.id && String(c.id).startsWith('SGTPL')
+        return {
+          ...c,
+          id: hasSgtpl ? c.id : formatCustomerId(idx + 1),
+          employment: c.employment || 'self employed',
+          kycStatus: c.kycStatus || (idx === 0 ? 'Pending' : 'Verified')
         }
-      }
-    } catch {
-      // fallback
+      })
     }
     return []
   })
 
-  const [disbursements, setDisbursements] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.disbursements && Array.isArray(parsed.disbursements)) return parsed.disbursements
-      }
-    } catch {
-      // fallback
-    }
-    return []
-  })
+  const [disbursements, setDisbursements] = useState(() => (Array.isArray(saved?.disbursements) ? saved.disbursements : []))
 
   const [auditLogs, setAuditLogs] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.auditLogs && Array.isArray(parsed.auditLogs)) return parsed.auditLogs
-      }
-    } catch {
-      // fallback
-    }
+    if (saved?.auditLogs && Array.isArray(saved.auditLogs)) return saved.auditLogs
     return [
       {
         id: 'LOG-001',
@@ -1273,91 +1176,29 @@ export function DashboardProvider({ children }) {
     ]
   })
 
-  const [visits, setVisits] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.visits && Array.isArray(parsed.visits)) return parsed.visits
-      }
-    } catch {
-      // fallback
-    }
-    return []
-  })
+  const [visits, setVisits] = useState(() => (Array.isArray(saved?.visits) ? saved.visits : []))
 
   const [loanProducts, setLoanProducts] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.loanProducts && Array.isArray(parsed.loanProducts)) {
-          return parsed.loanProducts.filter((p) => p.status !== 'Deactivated')
-        }
-      }
-    } catch {
-      // fallback
+    if (saved?.loanProducts && Array.isArray(saved.loanProducts)) {
+      return saved.loanProducts.filter((p) => p.status !== 'Deactivated')
     }
     return DEFAULT_LOAN_PRODUCTS.filter((p) => p.status !== 'Deactivated')
   })
 
-  const [branches, setBranches] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.branches && Array.isArray(parsed.branches)) return parsed.branches
-      }
-    } catch {
-      // fallback
-    }
-    return DEFAULT_BRANCHES
-  })
-
-  const [users, setUsers] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.users && Array.isArray(parsed.users)) return parsed.users
-      }
-    } catch {
-      // fallback
-    }
-    return DEFAULT_USERS
-  })
-
-  const [invitations, setInvitations] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.invitations && Array.isArray(parsed.invitations)) return parsed.invitations
-      }
-    } catch {
-      // fallback
-    }
-    return DEFAULT_INVITATIONS
-  })
+  const [branches, setBranches] = useState(() => (Array.isArray(saved?.branches) ? saved.branches : DEFAULT_BRANCHES))
+  const [users, setUsers] = useState(() => (Array.isArray(saved?.users) ? saved.users : DEFAULT_USERS))
+  const [invitations, setInvitations] = useState(() => (Array.isArray(saved?.invitations) ? saved.invitations : DEFAULT_INVITATIONS))
 
   const [settings, setSettings] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.settings) {
-          return {
-            ...DEFAULT_SETTINGS,
-            ...parsed.settings,
-            company: { ...DEFAULT_SETTINGS.company, ...(parsed.settings.company || {}) },
-            notifications: { ...DEFAULT_SETTINGS.notifications, ...(parsed.settings.notifications || {}) },
-            security: { ...DEFAULT_SETTINGS.security, ...(parsed.settings.security || {}) },
-            loanSettings: { ...DEFAULT_SETTINGS.loanSettings, ...(parsed.settings.loanSettings || {}) }
-          }
-        }
+    if (saved?.settings) {
+      return {
+        ...DEFAULT_SETTINGS,
+        ...saved.settings,
+        company: { ...DEFAULT_SETTINGS.company, ...(saved.settings.company || {}) },
+        notifications: { ...DEFAULT_SETTINGS.notifications, ...(saved.settings.notifications || {}) },
+        security: { ...DEFAULT_SETTINGS.security, ...(saved.settings.security || {}) },
+        loanSettings: { ...DEFAULT_SETTINGS.loanSettings, ...(saved.settings.loanSettings || {}) }
       }
-    } catch {
-      // fallback
     }
     return DEFAULT_SETTINGS
   })
@@ -1445,6 +1286,16 @@ export function DashboardProvider({ children }) {
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
+
+  // Notify user once on mount if system recovered state from a backup
+  useEffect(() => {
+    if (initialStorageResult?.recoveredFromBackup) {
+      addToast(
+        `System notice: Core banking ledger restored from backup (${initialStorageResult.source}).`,
+        'info'
+      )
+    }
+  }, [initialStorageResult, addToast])
 
   // Helper to record authentication audit logs
   const recordAuthAudit = useCallback((title, detail, actor) => {
@@ -1765,32 +1616,37 @@ export function DashboardProvider({ children }) {
     }
   }, [branchCustomers, branchLoans, branchApplications, branchPayments, currentUser])
 
-  // Persist all state to localStorage
+  // Persist all state safely to localStorage with atomic writes, backup rotation & quota protection
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          metrics,
-          trend,
-          statusBreakdown,
-          pendingApprovals,
-          recentPayments,
-          collectionTracker,
-          loans,
-          customers,
-          disbursements,
-          auditLogs,
-          visits,
-          loanProducts,
-          branches,
-          users,
-          invitations,
-          settings
-        })
-      )
-    } catch {
-      // fallback
+    const statePayload = {
+      metrics,
+      trend,
+      statusBreakdown,
+      pendingApprovals,
+      recentPayments,
+      collectionTracker,
+      loans,
+      customers,
+      disbursements,
+      auditLogs,
+      visits,
+      loanProducts,
+      branches,
+      users,
+      invitations,
+      settings
+    }
+
+    const saveResult = safeSaveLedger(statePayload)
+    if (!saveResult.success) {
+      if (saveResult.isQuota) {
+        addToast(
+          'Warning: Browser storage quota exceeded! Recent changes are retained safely in memory. Please download a backup export.',
+          'error'
+        )
+      } else {
+        console.warn('Storage persistence notice:', saveResult.error)
+      }
     }
   }, [
     metrics,
@@ -1808,7 +1664,55 @@ export function DashboardProvider({ children }) {
     branches,
     users,
     invitations,
-    settings
+    settings,
+    addToast
+  ])
+
+  // Export current state snapshot as JSON backup file
+  const exportStateBackup = useCallback(() => {
+    const currentState = {
+      metrics,
+      trend,
+      statusBreakdown,
+      pendingApprovals,
+      recentPayments,
+      collectionTracker,
+      loans,
+      customers,
+      disbursements,
+      auditLogs,
+      visits,
+      loanProducts,
+      branches,
+      users,
+      invitations,
+      settings
+    }
+    const success = exportLedgerBackupFile(currentState)
+    if (success) {
+      addToast('Backup export file generated and downloaded successfully.', 'success')
+    } else {
+      addToast('Failed to export backup file.', 'error')
+    }
+    return success
+  }, [
+    metrics,
+    trend,
+    statusBreakdown,
+    pendingApprovals,
+    recentPayments,
+    collectionTracker,
+    loans,
+    customers,
+    disbursements,
+    auditLogs,
+    visits,
+    loanProducts,
+    branches,
+    users,
+    invitations,
+    settings,
+    addToast
   ])
 
   // RECORD NEW PAYMENT: LIVE REACTIVE UPDATE TO ALL CARDS, METRICS & CHARTS
@@ -3404,39 +3308,40 @@ export function DashboardProvider({ children }) {
     setSettings(DEFAULT_SETTINGS)
 
     try {
-      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(PRIMARY_LEDGER_KEY)
+      localStorage.removeItem(LEGACY_LEDGER_KEY)
       localStorage.removeItem('sadagati_mf_migration_runs_v2')
       localStorage.removeItem('sadagati_mf_mapping_templates_v1')
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          metrics: BLANK_METRICS,
-          trend: BLANK_TREND,
-          statusBreakdown: BLANK_STATUS,
-          pendingApprovals: [],
-          recentPayments: [],
-          collectionTracker: BLANK_COLLECTION_TRACKER,
-          loans: [],
-          customers: [],
-          disbursements: [],
-          auditLogs: [
-            {
-              id: `LOG-${Date.now()}`,
-              title: 'System Initialized to Blank Testing State',
-              detail: 'All customer and loan records reset to 0. Ready to test from beginning.',
-              category: 'SYSTEM',
-              timestamp: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-              actor: 'Admin Abhi'
-            }
-          ],
-          visits: [],
-          loanProducts: DEFAULT_LOAN_PRODUCTS,
-          branches: DEFAULT_BRANCHES,
-          users: DEFAULT_USERS,
-          invitations: [],
-          settings: DEFAULT_SETTINGS
-        })
-      )
+      for (let i = 1; i <= MAX_BACKUPS; i++) {
+        localStorage.removeItem(`${BACKUP_KEY_PREFIX}${i}`)
+      }
+      safeSaveLedger({
+        metrics: BLANK_METRICS,
+        trend: BLANK_TREND,
+        statusBreakdown: BLANK_STATUS,
+        pendingApprovals: [],
+        recentPayments: [],
+        collectionTracker: BLANK_COLLECTION_TRACKER,
+        loans: [],
+        customers: [],
+        disbursements: [],
+        auditLogs: [
+          {
+            id: `LOG-${Date.now()}`,
+            title: 'System Initialized to Blank Testing State',
+            detail: 'All customer and loan records reset to 0. Ready to test from beginning.',
+            category: 'SYSTEM',
+            timestamp: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            actor: 'Admin Abhi'
+          }
+        ],
+        visits: [],
+        loanProducts: DEFAULT_LOAN_PRODUCTS,
+        branches: DEFAULT_BRANCHES,
+        users: DEFAULT_USERS,
+        invitations: [],
+        settings: DEFAULT_SETTINGS
+      })
     } catch (err) {
       console.warn('Storage error', err)
     }
@@ -3464,9 +3369,13 @@ export function DashboardProvider({ children }) {
     setSettings(DEFAULT_SETTINGS)
 
     try {
-      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(PRIMARY_LEDGER_KEY)
+      localStorage.removeItem(LEGACY_LEDGER_KEY)
       localStorage.removeItem('sadagati_mf_migration_runs_v2')
       localStorage.removeItem('sadagati_mf_mapping_templates_v1')
+      for (let i = 1; i <= MAX_BACKUPS; i++) {
+        localStorage.removeItem(`${BACKUP_KEY_PREFIX}${i}`)
+      }
     } catch {
       // fallback
     }
@@ -3566,6 +3475,8 @@ export function DashboardProvider({ children }) {
       resetToFreshBlankState,
       resetToDemoState,
       hardWipeAllStorage,
+      exportStateBackup,
+      getStorageDiagnostics,
       formatINR,
       formatCustomerId,
       generateCustomerId,
@@ -3651,6 +3562,7 @@ export function DashboardProvider({ children }) {
       resetToFreshBlankState,
       resetToDemoState,
       hardWipeAllStorage,
+      exportStateBackup,
       currentUser,
       login,
       logout,
