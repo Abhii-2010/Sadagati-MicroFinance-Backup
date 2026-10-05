@@ -1,0 +1,325 @@
+/* ==========================================================================
+   Settings Styles (Base44 LMS Dark Theme Aesthetic)
+   ========================================================================== */
+
+.st-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   1. Header Row
+   -------------------------------------------------------------------------- */
+.st-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.st-header-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.st-main-heading {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.st-sub-heading {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.btn-save-settings {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.btn-save-settings:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+}
+
+.btn-save-settings:active {
+  transform: translateY(0);
+}
+
+/* --------------------------------------------------------------------------
+   2. Settings Tabs Navigation Bar
+   Company | Notifications | Security | Loan Settings
+   -------------------------------------------------------------------------- */
+.st-tabs-wrapper {
+  display: inline-flex;
+  align-items: center;
+  background-color: #111622;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.st-tab-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.st-tab-btn:hover {
+  color: #cbd5e1;
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.st-tab-btn.active {
+  background-color: #1e2638;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+   3. Settings Main Card
+   -------------------------------------------------------------------------- */
+.st-card {
+  background-color: #111622;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.st-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.st-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.st-card-subtitle {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   4. Form Grid & Input Fields
+   -------------------------------------------------------------------------- */
+.st-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 24px;
+}
+
+@media (max-width: 768px) {
+  .st-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.st-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.st-form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.st-form-input {
+  background-color: #0b0f19;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #ffffff;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+
+.st-form-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+}
+
+.st-form-input::placeholder {
+  color: #475569;
+}
+
+.st-form-hint {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   5. Toggle Rows (Notifications & Security Tabs)
+   -------------------------------------------------------------------------- */
+.st-toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.st-toggle-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background-color: #0b0f19;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.st-toggle-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.st-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.st-toggle-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.st-toggle-icon.blue {
+  background-color: rgba(37, 99, 235, 0.12);
+  color: #3b82f6;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+}
+
+.st-toggle-icon.green {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.st-toggle-icon.purple {
+  background-color: rgba(147, 51, 234, 0.12);
+  color: #c084fc;
+  border: 1px solid rgba(147, 51, 234, 0.25);
+}
+
+.st-toggle-icon.amber {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.st-toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.st-toggle-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.st-toggle-desc {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* Base44 Toggle Switch */
+.st-switch {
+  width: 42px;
+  height: 22px;
+  border-radius: 20px;
+  background-color: #1e2638;
+  position: relative;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.st-switch.active {
+  background-color: #2563eb;
+}
+
+.st-switch-knob {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.st-switch.active .st-switch-knob {
+  transform: translateX(20px);
+}
