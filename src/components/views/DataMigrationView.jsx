@@ -241,11 +241,35 @@ export default function DataMigrationView() {
       reader.onload = (e) => {
         try {
           const data = new Uint8Array(e.target.result)
-          const workbook = XLSX.read(data, { type: 'array' })
-          const sheetName = workbook.SheetNames[0]
+          // Security: treat spreadsheet as untrusted input
+          // cellFormula: false disables formula calculation & execution
+          // cellHTML: false prevents HTML injection in cell contents
+          const workbook = XLSX.read(data, {
+            type: 'array',
+            cellFormula: false,
+            cellHTML: false,
+            cellText: false
+          })
+          const sheetName = workbook.SheetNames[0] || 'Sheet1'
           const sheet = workbook.Sheets[sheetName]
-          const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' })
-          const headers = jsonData.length > 0 ? Object.keys(jsonData[0]) : []
+          const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' })
+
+          // Security: Prevent Prototype Pollution & block dangerous property names
+          const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+          const jsonData = rawRows.map(row => {
+            const cleanRow = {}
+            for (const [key, val] of Object.entries(row)) {
+              const cleanKey = String(key).trim()
+              if (!cleanKey || DANGEROUS_KEYS.has(cleanKey)) continue
+              if (typeof val === 'function') continue
+              cleanRow[cleanKey] = val === undefined || val === null ? '' : val
+            }
+            return cleanRow
+          })
+
+          const headers = jsonData.length > 0
+            ? Object.keys(jsonData[0]).filter(h => !DANGEROUS_KEYS.has(h))
+            : []
 
           setUploadedFiles(prev => prev.map(f =>
             f.id === fileObj.id ? {
