@@ -239,7 +239,11 @@ export default function UserManagementView() {
       addToast('Please enter your full name', 'error')
       return
     }
-    if (onboardingForm.password && onboardingForm.password !== onboardingForm.confirmPassword) {
+    if (!onboardingForm.password) {
+      addToast('Please create a password for your account', 'error')
+      return
+    }
+    if (onboardingForm.password !== onboardingForm.confirmPassword) {
       addToast('Passwords do not match', 'error')
       return
     }
@@ -253,7 +257,8 @@ export default function UserManagementView() {
       branch: onboardingInvite.branch,
       accessLevel: onboardingInvite.accessLevel,
       permissions: onboardingInvite.permissions,
-      limits: onboardingInvite.limits
+      limits: onboardingInvite.limits,
+      password: onboardingForm.password
     })
 
     setIsOnboardingModalOpen(false)

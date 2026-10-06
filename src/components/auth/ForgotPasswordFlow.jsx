@@ -93,16 +93,21 @@ export default function ForgotPasswordFlow({ onBackToLogin, onPasswordResetSucce
     }
 
     setLoading(true)
-    setTimeout(() => {
-      const res = resetPassword(identifier, code, newPassword)
-      setLoading(false)
-      if (res.success) {
-        setStep('success')
-        if (onPasswordResetSuccess) {
-          onPasswordResetSuccess(identifier)
+    setTimeout(async () => {
+      try {
+        const res = await resetPassword(identifier, code, newPassword)
+        setLoading(false)
+        if (res.success) {
+          setStep('success')
+          if (onPasswordResetSuccess) {
+            onPasswordResetSuccess(identifier)
+          }
+        } else {
+          setError(res.error || 'Failed to update password. Please try again.')
         }
-      } else {
-        setError(res.error || 'Failed to update password. Please try again.')
+      } catch (err) {
+        setLoading(false)
+        setError('Failed to update password. Please try again.')
       }
     }, 450)
   }

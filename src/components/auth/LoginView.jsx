@@ -57,13 +57,18 @@ export default function LoginView() {
     setLoading(true)
 
     // Micro-interaction latency for realistic financial authentication feedback
-    setTimeout(() => {
-      const result = login(cleanId, password, rememberMe)
-      if (!result.success) {
-        setError(result.error)
+    setTimeout(async () => {
+      try {
+        const result = await login(cleanId, password, rememberMe)
+        if (!result.success) {
+          setError(result.error)
+          setLoading(false)
+        } else {
+          setSuccessRedirecting(true)
+        }
+      } catch (err) {
+        setError('Authentication system error. Please try again.')
         setLoading(false)
-      } else {
-        setSuccessRedirecting(true)
       }
     }, 450)
   }

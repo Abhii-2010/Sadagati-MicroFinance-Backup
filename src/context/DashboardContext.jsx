@@ -15,6 +15,12 @@ import {
   BACKUP_KEY_PREFIX,
   MAX_BACKUPS
 } from '../services/storageService.js'
+import {
+  createPasswordVerifier,
+  verifyPassword,
+  sanitizeUserForSession,
+  isWebCryptoAvailable
+} from '../services/authCryptoService.js'
 
 const DashboardContext = createContext(null)
 
@@ -888,7 +894,12 @@ const DEFAULT_USERS = [
     designation: 'Managing Director & SuperAdmin',
     joiningDate: '01 Jan 2024',
     createdAt: '2024-01-01T00:00:00Z',
-    password: 'password123',
+    auth: {
+      algo: 'PBKDF2-HMAC-SHA256',
+      iterations: 100000,
+      salt: '21263d69a8867abb82b320266a9f6cd0',
+      hash: 'ed246517a24ae2b97483f52b52ae2a97d3b90c8431f56291aafeb81d7a2bc7fe'
+    },
     permissions: {
       dashboard: { read: true, write: true },
       customers: { read: true, write: true },
@@ -930,7 +941,12 @@ const DEFAULT_USERS = [
     designation: 'Operations Director',
     joiningDate: '01 Mar 2025',
     createdAt: '2025-03-01T09:00:00Z',
-    password: 'password123',
+    auth: {
+      algo: 'PBKDF2-HMAC-SHA256',
+      iterations: 100000,
+      salt: '1861444d5286ba21f8651775c53883c3',
+      hash: '1c9e1069d079458b2ab9a6afe11a1f689e00256a038f495ac40d6b2f78489eb6'
+    },
     permissions: {
       dashboard: { read: true, write: true },
       customers: { read: true, write: true },
@@ -972,7 +988,12 @@ const DEFAULT_USERS = [
     designation: 'Field Collection Officer',
     joiningDate: '20 Mar 2025',
     createdAt: '2025-03-20T14:30:00Z',
-    password: 'password123',
+    auth: {
+      algo: 'PBKDF2-HMAC-SHA256',
+      iterations: 100000,
+      salt: '915b26a88d5734d3e1801520e0a999b5',
+      hash: '1c80b52445dbea75257445c323a5042a89230b468b4b13bf1998a5be9779f037'
+    },
     permissions: {
       dashboard: { read: true, write: false },
       customers: { read: true, write: true },
@@ -1015,7 +1036,12 @@ const DEFAULT_USERS = [
     designation: 'Senior Branch Executive',
     joiningDate: '15 Jan 2026',
     createdAt: '2026-01-15T11:00:00Z',
-    password: 'password123',
+    auth: {
+      algo: 'PBKDF2-HMAC-SHA256',
+      iterations: 100000,
+      salt: 'e6b839a391ca67c19ddda1299d915692',
+      hash: 'e88992b170cb4b2f0103a0a50de374e98ab134aa9c1b2ef4f9f27a2c416307d9'
+    },
     permissions: {
       dashboard: { read: true, write: false },
       customers: { read: true, write: true },
@@ -1225,7 +1251,7 @@ export function DashboardProvider({ children }) {
   // Active password reset requests: { [identifier]: { code, expiresAt, userId } }
   const [resetRequests, setResetRequests] = useState({})
 
-  // Initialize currentUser from secure session
+  // Initialize currentUser from secure session (sanitizing credential fields)
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const savedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY)
@@ -1243,7 +1269,7 @@ export function DashboardProvider({ children }) {
               return null
             }
           }
-          return parsedUser
+          return sanitizeUserForSession(parsedUser)
         }
       }
     } catch {
@@ -1261,11 +1287,12 @@ export function DashboardProvider({ children }) {
     return () => clearTimeout(timer)
   }, [])
 
-  // Persist currentUser
+  // Persist currentUser (strictly stripping password, auth, hash, salt from session storage)
   useEffect(() => {
     try {
       if (currentUser) {
-        localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser))
+        const safeUser = sanitizeUserForSession(currentUser)
+        localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(safeUser))
       } else {
         localStorage.removeItem(CURRENT_USER_STORAGE_KEY)
       }
@@ -1273,6 +1300,47 @@ export function DashboardProvider({ children }) {
       // fallback
     }
   }, [currentUser])
+
+  // Automatic Startup Ledger Sanitization:
+  // Detect any legacy plaintext user credentials, derive PBKDF2 verifiers, and sanitize storage.
+  useEffect(() => {
+    let isCancelled = false
+    async function sanitizeLedgerCredentials() {
+      if (!isWebCryptoAvailable()) {
+        console.warn('[Security Notice] Web Crypto API is unavailable; credential sanitization deferred.')
+        return
+      }
+
+      const hasLegacy = users.some(
+        (u) => u && typeof u.password === 'string' && u.password.length > 0
+      )
+      if (!hasLegacy) return
+
+      try {
+        const sanitized = await Promise.all(
+          users.map(async (u) => {
+            if (u && typeof u.password === 'string' && u.password.length > 0) {
+              const verifier = await createPasswordVerifier(u.password)
+              const { password: _p, ...cleanUser } = u
+              return { ...cleanUser, auth: verifier }
+            }
+            return u
+          })
+        )
+
+        if (!isCancelled) {
+          setUsers(sanitized)
+        }
+      } catch (err) {
+        console.warn('[Security Notice] Error during startup credential sanitization:', err)
+      }
+    }
+
+    sanitizeLedgerCredentials()
+    return () => {
+      isCancelled = true
+    }
+  }, [users])
 
   // Toast helper
   const addToast = useCallback((message, type = 'success') => {
@@ -1317,7 +1385,7 @@ export function DashboardProvider({ children }) {
 
   // Authentication methods
   const login = useCallback(
-    (identifier, password, rememberMe = true) => {
+    async (identifier, password, rememberMe = true) => {
       const now = Date.now()
 
       // Check rate limiting
@@ -1354,8 +1422,32 @@ export function DashboardProvider({ children }) {
         return { success: false, error: 'Your account is currently inactive. Please contact your administrator.' }
       }
 
-      // Password validation: allow demo default 'password123', empty, or matching password
-      if (foundUser.password && password && foundUser.password !== password && password !== 'password123') {
+      // Strict credential check: Accounts without credentials or pending setup cannot authenticate
+      if ((!foundUser.auth && !foundUser.password) || foundUser.pendingSetup) {
+        setFailedAttempts((prev) => {
+          const newCount = prev.count + 1
+          const lock = newCount >= 5 ? now + 30000 : 0
+          return { count: newCount, lockUntil: lock }
+        })
+        recordAuthAudit('User Login Blocked', `Account credentials unconfigured or missing: ${foundUser.email}`, foundUser.name)
+        return { success: false, error: 'Account credentials have not been configured. Please contact your administrator.' }
+      }
+
+      let isPasswordValid = false
+      let requiresMigration = false
+
+      if (foundUser.auth) {
+        isPasswordValid = await verifyPassword(password, foundUser.auth)
+      } else if (foundUser.password) {
+        // Legacy migration compatibility: check legacy plaintext password ONLY
+        if (foundUser.password === password) {
+          isPasswordValid = true
+          requiresMigration = true
+        }
+      }
+
+      // Universal password demo bypass was completely eliminated
+      if (!isPasswordValid) {
         setFailedAttempts((prev) => {
           const newCount = prev.count + 1
           const lock = newCount >= 5 ? now + 30000 : 0
@@ -1363,6 +1455,20 @@ export function DashboardProvider({ children }) {
         })
         recordAuthAudit('User Login Failed', `Invalid password entered for user ${foundUser.email}`, foundUser.name)
         return { success: false, error: "We couldn't sign you in. Please check your credentials and try again." }
+      }
+
+      // If verified using legacy password, immediately create verifier and upgrade user
+      let updatedUser = foundUser
+      if (requiresMigration) {
+        try {
+          const verifier = await createPasswordVerifier(password)
+          const { password: _p, ...migrated } = foundUser
+          updatedUser = { ...migrated, auth: verifier }
+          setUsers((prev) => prev.map((u) => (u.id === foundUser.id ? updatedUser : u)))
+          recordAuthAudit('Credential Upgraded', `Legacy password migrated to PBKDF2 verifier for ${foundUser.email}`, foundUser.name)
+        } catch (migErr) {
+          console.warn('Migration verifier derivation warning:', migErr)
+        }
       }
 
       // Successful authentication: reset failed attempts
@@ -1373,7 +1479,7 @@ export function DashboardProvider({ children }) {
       const sessionDuration = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 8 * 60 * 60 * 1000
       const sessionMeta = {
         sessionToken: `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-        userId: foundUser.id,
+        userId: updatedUser.id,
         loginTimestamp: now,
         expiresAt: now + sessionDuration,
         rememberMe: !!rememberMe
@@ -1385,14 +1491,15 @@ export function DashboardProvider({ children }) {
         // fallback
       }
 
-      setCurrentUser(foundUser)
+      const sanitizedSessionUser = sanitizeUserForSession(updatedUser)
+      setCurrentUser(sanitizedSessionUser)
       recordAuthAudit(
         'User Login Success',
-        `Authenticated ${foundUser.name} (${foundUser.role}) • Branch: ${foundUser.branch || 'HQ'}`,
-        `${foundUser.name} (${foundUser.role})`
+        `Authenticated ${updatedUser.name} (${updatedUser.role}) • Branch: ${updatedUser.branch || 'HQ'}`,
+        `${updatedUser.name} (${updatedUser.role})`
       )
-      addToast(`Welcome back, ${foundUser.name}! (${foundUser.role} • ${foundUser.branch})`, 'success')
-      return { success: true, user: foundUser }
+      addToast(`Welcome back, ${updatedUser.name}! (${updatedUser.role} • ${updatedUser.branch})`, 'success')
+      return { success: true, user: sanitizedSessionUser }
     },
     [users, addToast, failedAttempts, recordAuthAudit]
   )
@@ -1419,7 +1526,8 @@ export function DashboardProvider({ children }) {
     (userId) => {
       const target = users.find((u) => u.id === userId)
       if (target) {
-        setCurrentUser(target)
+        const sanitizedTarget = sanitizeUserForSession(target)
+        setCurrentUser(sanitizedTarget)
         recordAuthAudit(
           'Workspace Switch',
           `Developer switched active view to ${target.name} (${target.role})`,
@@ -1430,6 +1538,7 @@ export function DashboardProvider({ children }) {
     },
     [users, addToast, recordAuthAudit]
   )
+
 
   // Password Recovery - Request Reset
   const requestPasswordReset = useCallback(
@@ -1478,10 +1587,6 @@ export function DashboardProvider({ children }) {
       const req = resetRequests[cleanId]
 
       if (!req) {
-        // Fallback for demo testing
-        if (cleanCode === '123456' || cleanCode === '849201') {
-          return { success: true }
-        }
         return { success: false, error: 'Reset session expired or not found. Please request a new code.' }
       }
 
@@ -1489,7 +1594,7 @@ export function DashboardProvider({ children }) {
         return { success: false, error: 'Verification code has expired. Please request a new one.' }
       }
 
-      if (req.code !== cleanCode && cleanCode !== '123456') {
+      if (req.code !== cleanCode) {
         return { success: false, error: 'Invalid verification code. Please check and try again.' }
       }
 
@@ -1498,9 +1603,9 @@ export function DashboardProvider({ children }) {
     [resetRequests]
   )
 
-  // Password Recovery - Set New Password
+  // Password Recovery - Set New Password (creates PBKDF2 verifier, purges plaintext password)
   const resetPassword = useCallback(
-    (identifier, code, newPassword) => {
+    async (identifier, code, newPassword) => {
       const cleanId = String(identifier || '').trim().toLowerCase()
       const verifyRes = verifyResetCode(identifier, code)
       if (!verifyRes.success) {
@@ -1515,12 +1620,19 @@ export function DashboardProvider({ children }) {
       )
 
       if (foundUser) {
+        const verifier = await createPasswordVerifier(newPassword)
         setUsers((prev) =>
-          prev.map((u) => (u.id === foundUser.id ? { ...u, password: newPassword } : u))
+          prev.map((u) => {
+            if (u.id === foundUser.id) {
+              const { password: _p, ...cleanUser } = u
+              return { ...cleanUser, auth: verifier, pendingSetup: false }
+            }
+            return u
+          })
         )
         recordAuthAudit(
           'Password Reset Completed',
-          `Password successfully updated for user ${foundUser.name} (${foundUser.role})`,
+          `Password successfully updated with PBKDF2 verifier for user ${foundUser.name} (${foundUser.role})`,
           foundUser.name
         )
       }
@@ -2866,9 +2978,19 @@ export function DashboardProvider({ children }) {
 
   // ADD USER
   const addUser = useCallback(
-    (userData) => {
+    async (userData) => {
       const newId = userData.id || `USR-00${users.length + 1}`
       const isFull = userData.accessLevel === 'full' || userData.role === 'Admin'
+
+      let authVerifier = null
+      if (userData.password) {
+        try {
+          authVerifier = await createPasswordVerifier(userData.password)
+        } catch (err) {
+          console.warn('Failed to derive password verifier for added user:', err)
+        }
+      }
+
       const userObj = {
         id: newId,
         name: userData.name || 'New Staff',
@@ -2878,6 +3000,8 @@ export function DashboardProvider({ children }) {
         branch: userData.branch || '-',
         branchId: userData.branchId || null,
         status: userData.status || 'Active',
+        pendingSetup: !authVerifier,
+        auth: authVerifier,
         lastLogin: 'Never',
         accessLevel: isFull ? 'full' : 'limited',
         permissions: userData.permissions || (isFull
@@ -3051,7 +3175,7 @@ export function DashboardProvider({ children }) {
 
   // ACCEPT INVITATION
   const acceptInvitation = useCallback(
-    (token, profileDetails) => {
+    async (token, profileDetails) => {
       let targetInvite = invitations.find((i) => i.token === token || i.id === token)
       setInvitations((prev) =>
         prev.map((inv) => {
@@ -3064,6 +3188,16 @@ export function DashboardProvider({ children }) {
       )
 
       const isFull = (targetInvite?.accessLevel || profileDetails?.accessLevel) === 'full' || (targetInvite?.role || profileDetails?.role) === 'Admin'
+
+      let authVerifier = null
+      if (profileDetails?.password) {
+        try {
+          authVerifier = await createPasswordVerifier(profileDetails.password)
+        } catch (err) {
+          console.warn('Failed to derive password verifier for accepted invitation:', err)
+        }
+      }
+
       const newUser = {
         id: `USR-00${users.length + 1}`,
         name: profileDetails?.name || 'New Staff',
@@ -3073,6 +3207,8 @@ export function DashboardProvider({ children }) {
         branch: targetInvite?.branch || profileDetails?.branch || '-',
         branchId: targetInvite?.branchId || null,
         status: 'Active',
+        pendingSetup: !authVerifier,
+        auth: authVerifier,
         lastLogin: 'Just now',
         accessLevel: isFull ? 'full' : 'limited',
         permissions: targetInvite?.permissions || profileDetails?.permissions,
