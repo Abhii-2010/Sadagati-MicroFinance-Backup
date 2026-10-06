@@ -1166,65 +1166,6 @@
   background-color: #fecaca;
 }
 
-/* Quick Payment Banner & Tables */
-.quick-payment-banner {
-  background-color: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  padding: 12px 14px;
-  margin-bottom: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.quick-banner-title {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #1e40af;
-}
-
-.quick-payment-form {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.quick-input,
-.quick-input-num,
-.quick-select {
-  border: 1px solid #93c5fd;
-  border-radius: 5px;
-  padding: 6px 8px;
-  font-size: 0.78rem;
-  background-color: #ffffff;
-  color: #0f172a;
-}
-
-.quick-input {
-  flex: 1;
-  min-width: 130px;
-}
-
-.quick-input-num {
-  width: 90px;
-}
-
-.btn-quick-collect {
-  background-color: #2563eb;
-  color: #ffffff;
-  border: none;
-  border-radius: 5px;
-  padding: 6px 12px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-}
-
 .payments-table-container,
 .approvals-table-container {
   overflow-x: auto;
@@ -1276,48 +1217,6 @@
   gap: 3px;
   color: #10b981;
   font-weight: 500;
-}
-
-/* Other Placeholder modules */
-.other-module-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
-}
-
-.placeholder-card {
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 36px 40px;
-  text-align: center;
-  max-width: 440px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-}
-
-.placeholder-card h2 {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #0f172a;
-  margin-bottom: 8px;
-}
-
-.placeholder-card p {
-  font-size: 0.82rem;
-  color: #64748b;
-  margin-bottom: 20px;
-}
-
-.btn-return-dashboard {
-  background-color: #2563eb;
-  color: #ffffff;
-  border: none;
-  padding: 8px 18px;
-  border-radius: 6px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 /* Utilities */
@@ -1884,13 +1783,6 @@
   gap: 6px;
 }
 
-.filter-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-  margin-right: 4px;
-}
-
 /* Tables */
 .data-table-container {
   background-color: #ffffff;
@@ -1962,40 +1854,10 @@
   color: #94a3b8;
 }
 
-.phone-cell {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono);
-}
-
 .center-tag {
   background-color: #f1f5f9;
   color: #475569;
   font-size: 0.7rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.loan-count-badge {
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background-color: #f1f5f9;
-  color: #64748b;
-}
-
-.loan-count-badge.has-loan {
-  background-color: #ecfdf5;
-  color: #059669;
-}
-
-.score-badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #0284c7;
-  background-color: #f0f9ff;
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -2207,31 +2069,6 @@
 .pct-tag {
   font-weight: 700;
   color: #0f172a;
-}
-
-/* Reports */
-.reports-split-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-
-.report-bar-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.report-bar-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.bar-labels-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.78rem;
 }
 
 /* Audit Logs */
@@ -2568,12 +2405,6 @@
   resize: vertical;
   font-family: inherit;
   line-height: 1.4;
-}
-
-.new-app-two-col-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
 }
 
 .new-app-buttons-row {
