@@ -21,7 +21,6 @@ import {
   Building2,
   UserCheck,
   BookOpen,
-  FileText,
   Activity,
   Shield,
   Zap,
@@ -32,11 +31,9 @@ import {
   ScrollText,
   Settings2,
   Search,
-  Filter,
   Check,
   ArrowRightLeft,
   Save,
-  BookmarkCheck,
   Calendar,
   DollarSign
 } from 'lucide-react'
@@ -46,7 +43,6 @@ import {
   SYSTEM_FIELD_LABELS,
   autoMapColumn,
   validateRecords,
-  transformRecord,
   calculateReconciliation,
   generateErrorReportCsv,
   generateReconciliationReportText,
@@ -186,19 +182,6 @@ export default function DataMigrationView() {
   }, [])
 
   // ── File Selection & Parsing ──
-  const handleFileDrop = useCallback((e) => {
-    e.preventDefault()
-    setDragging(false)
-    const files = Array.from(e.dataTransfer?.files || e.target?.files || [])
-    processFiles(files)
-  }, [])
-
-  const handleFileSelect = useCallback((e) => {
-    const files = Array.from(e.target.files || [])
-    processFiles(files)
-    e.target.value = ''
-  }, [])
-
   const processFiles = useCallback((files) => {
     const validFiles = files.filter(f => {
       const ext = f.name.split('.').pop().toLowerCase()
@@ -225,6 +208,19 @@ export default function DataMigrationView() {
     setUploadedFiles(prev => [...prev, ...newFiles])
     addToast(`${validFiles.length} file(s) uploaded successfully`, 'success')
   }, [addToast])
+
+  const handleFileDrop = useCallback((e) => {
+    e.preventDefault()
+    setDragging(false)
+    const files = Array.from(e.dataTransfer?.files || e.target?.files || [])
+    processFiles(files)
+  }, [processFiles])
+
+  const handleFileSelect = useCallback((e) => {
+    const files = Array.from(e.target.files || [])
+    processFiles(files)
+    e.target.value = ''
+  }, [processFiles])
 
   const removeFile = useCallback((fileId) => {
     setUploadedFiles(prev => prev.filter(f => f.id !== fileId))
@@ -399,14 +395,6 @@ export default function DataMigrationView() {
   }
 
   // ── Execution Handlers ──
-  const executeMigration = useCallback(() => {
-    if (!isDryRun) {
-      setShowConfirmDialog(true)
-      return
-    }
-    runMigration(true)
-  }, [isDryRun])
-
   const runMigration = useCallback((dryRun) => {
     setShowConfirmDialog(false)
     setConfirmText('')
@@ -524,6 +512,14 @@ export default function DataMigrationView() {
       }, step.delay)
     })
   }, [parsedData, selectedEntityType, fieldMapping, validationResult, uploadedFiles, migrationMeta, addToast, executionLogs, importLegacyBatch])
+
+  const executeMigration = useCallback(() => {
+    if (!isDryRun) {
+      setShowConfirmDialog(true)
+      return
+    }
+    runMigration(true)
+  }, [isDryRun, runMigration])
 
   // ── Reset Wizard ──
   const resetWizard = useCallback(() => {
